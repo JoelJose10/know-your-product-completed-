@@ -165,7 +165,7 @@ export default function ChatPanel({ messages, onSendMessage, isLoading, jobId })
               className="
                 w-full px-4 py-3 pr-12 rounded-xl border border-slate-200
                 bg-slate-50 text-slate-700 placeholder-slate-400
-                focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent
+                focus:outline-none
                 disabled:opacity-50 disabled:cursor-not-allowed
                 resize-none min-h-[48px] max-h-[120px]
                 transition-all duration-200

@@ -176,14 +176,6 @@ body::before {
   animation-delay: 0.4s;
 }
 
-/* Focus styles for accessibility */
-button:focus-visible,
-input:focus-visible,
-textarea:focus-visible {
-  outline: 2px solid var(--color-primary);
-  outline-offset: 2px;
-}
-
 /* Smooth transitions */
 button, a, input, textarea {
   transition: all 0.2s ease;
