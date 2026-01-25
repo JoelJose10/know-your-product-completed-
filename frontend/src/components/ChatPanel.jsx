@@ -152,7 +152,7 @@ export default function ChatPanel({ messages, onSendMessage, isLoading, jobId })
 
       {/* Input */}
       <form onSubmit={handleSubmit} className="p-4 border-t border-slate-100">
-        <div className="flex justify-center items-center gap-3">
+        <div className="flex items-start gap-3">
           <div className="flex-1 relative">
             <textarea
               ref={inputRef}
@@ -179,7 +179,7 @@ export default function ChatPanel({ messages, onSendMessage, isLoading, jobId })
             type="submit"
             disabled={!input.trim() || !jobId || isLoading}
             className="
-              p-3 rounded-xl
+              h-[48px] w-[48px] rounded-xl flex items-center justify-center flex-shrink-0
               bg-gradient-to-r from-indigo-500 to-violet-500
               hover:from-indigo-600 hover:to-violet-600
               text-white shadow-lg shadow-indigo-500/25
