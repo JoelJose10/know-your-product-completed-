@@ -1,17 +1,29 @@
-import { FileText, Tag, TrendingUp, RefreshCw } from 'lucide-react';
+import { FileText, Tag, TrendingUp, RefreshCw, Square } from 'lucide-react';
 
-export default function SummaryBox({ summary, isLoading, jobId }) {
+export default function SummaryBox({ summary, isLoading, jobId, onStop }) {
   if (isLoading) {
     return (
       <div className="bg-white rounded-2xl shadow-lg shadow-slate-200/50 border border-slate-200/60 p-8 animate-slide-up">
-        <div className="flex items-center gap-3 mb-6">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-100 to-violet-100 flex items-center justify-center">
-            <RefreshCw className="w-5 h-5 text-indigo-500 animate-spin" />
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-100 to-violet-100 flex items-center justify-center">
+              <RefreshCw className="w-5 h-5 text-indigo-500 animate-spin" />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold text-slate-800">Analyzing Document...</h2>
+              <p className="text-sm text-slate-500">Extracting insights from your files</p>
+            </div>
           </div>
-          <div>
-            <h2 className="text-lg font-semibold text-slate-800">Analyzing Document...</h2>
-            <p className="text-sm text-slate-500">Extracting insights from your files</p>
-          </div>
+          
+          {onStop && (
+            <button
+              onClick={onStop}
+              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-xl transition-colors"
+            >
+              <Square className="w-3.5 h-3.5 fill-current" />
+              Stop
+            </button>
+          )}
         </div>
         
         <div className="space-y-4">

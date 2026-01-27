@@ -26,19 +26,27 @@ export default function UploadCard({ onUpload, isUploading, uploadProgress }) {
   const [uploadStatus, setUploadStatus] = useState({}); // 'pending' | 'uploading' | 'success' | 'error'
 
   const onDrop = useCallback((acceptedFiles) => {
+    // Clear previous files when new ones are uploaded
+    setFiles(prev => {
+      prev.forEach(f => {
+        if (f.preview) URL.revokeObjectURL(f.preview);
+      });
+      return [];
+    });
+    
     const newFiles = acceptedFiles.map(file => ({
       file,
       id: `${file.name}-${Date.now()}`,
       preview: file.type.startsWith('image/') ? URL.createObjectURL(file) : null,
     }));
-    setFiles(prev => [...prev, ...newFiles]);
+    setFiles(newFiles);
     
     // Initialize status for new files
     const newStatus = {};
     newFiles.forEach(f => {
       newStatus[f.id] = 'pending';
     });
-    setUploadStatus(prev => ({ ...prev, ...newStatus }));
+    setUploadStatus(newStatus);
   }, []);
 
   const removeFile = (fileId) => {
@@ -70,21 +78,12 @@ export default function UploadCard({ onUpload, isUploading, uploadProgress }) {
       const fileList = files.map(f => f.file);
       await onUpload(fileList);
       
-      // Mark all as success
+      // Mark all as success - keep files visible
       const successStatus = {};
       files.forEach(f => {
         successStatus[f.id] = 'success';
       });
       setUploadStatus(successStatus);
-      
-      // Clear files after successful upload
-      setTimeout(() => {
-        files.forEach(f => {
-          if (f.preview) URL.revokeObjectURL(f.preview);
-        });
-        setFiles([]);
-        setUploadStatus({});
-      }, 2000);
     } catch {
       // Mark all as error
       const errorStatus = {};
@@ -204,7 +203,7 @@ export default function UploadCard({ onUpload, isUploading, uploadProgress }) {
                 <div className="flex items-center gap-2">
                   {getStatusIcon(status)}
                   
-                  {status !== 'uploading' && status !== 'success' && (
+                  {status !== 'uploading' && (
                     <button
                       onClick={(e) => {
                         e.stopPropagation();

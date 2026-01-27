@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Send, Bot, User, Sparkles, AlertCircle } from 'lucide-react';
+import { Send, Bot, User, Sparkles, AlertCircle, Square } from 'lucide-react';
 
 function TypingIndicator() {
   return (
@@ -51,7 +51,7 @@ function ChatMessage({ message, isUser }) {
   );
 }
 
-export default function ChatPanel({ messages, onSendMessage, isLoading, jobId }) {
+export default function ChatPanel({ messages, onSendMessage, isLoading, jobId, onStop }) {
   const [input, setInput] = useState('');
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
@@ -175,22 +175,40 @@ export default function ChatPanel({ messages, onSendMessage, isLoading, jobId })
             />
           </div>
           
-          <button
-            type="submit"
-            disabled={!input.trim() || !jobId || isLoading}
-            className="
-              h-[48px] w-[48px] rounded-xl flex items-center justify-center flex-shrink-0
-              bg-gradient-to-r from-indigo-500 to-violet-500
-              hover:from-indigo-600 hover:to-violet-600
-              text-white shadow-lg shadow-indigo-500/25
-              disabled:opacity-50 disabled:cursor-not-allowed
-              transition-all duration-200
-              focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2
-            "
-            aria-label="Send message"
-          >
-            <Send className="w-5 h-5" />
-          </button>
+          {isLoading ? (
+            <button
+              type="button"
+              onClick={onStop}
+              className="
+                h-[48px] w-[48px] rounded-xl flex items-center justify-center flex-shrink-0
+                bg-white border border-slate-200
+                hover:bg-slate-50
+                text-slate-700 shadow-sm
+                transition-all duration-200
+                focus:outline-none focus:ring-2 focus:ring-slate-300 focus:ring-offset-2
+              "
+              aria-label="Stop generating"
+            >
+              <Square className="w-4 h-4 fill-current" />
+            </button>
+          ) : (
+            <button
+              type="submit"
+              disabled={!input.trim() || !jobId}
+              className="
+                h-[48px] w-[48px] rounded-xl flex items-center justify-center flex-shrink-0
+                bg-gradient-to-r from-indigo-500 to-violet-500
+                hover:from-indigo-600 hover:to-violet-600
+                text-white shadow-lg shadow-indigo-500/25
+                disabled:opacity-50 disabled:cursor-not-allowed
+                transition-all duration-200
+                focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2
+              "
+              aria-label="Send message"
+            >
+              <Send className="w-5 h-5" />
+            </button>
+          )}
         </div>
       </form>
     </div>
