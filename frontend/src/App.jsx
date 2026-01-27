@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import axios from 'axios';
 import Header from './components/Header';
 import SummaryBox from './components/SummaryBox';
@@ -26,21 +26,44 @@ function AppContent() {
   // Summary state
   const [summary, setSummary] = useState(null);
   const [isSummaryLoading, setIsSummaryLoading] = useState(false);
+  const pollingAbortRef = useRef(false);
   
   // Chat state
   const [messages, setMessages] = useState([]);
   const [isChatLoading, setIsChatLoading] = useState(false);
+  const chatAbortControllerRef = useRef(null);
+
+  // Stop chat generation
+  const handleStopChat = useCallback(() => {
+    if (chatAbortControllerRef.current) {
+      chatAbortControllerRef.current.abort();
+      chatAbortControllerRef.current = null;
+    }
+    setIsChatLoading(false);
+  }, []);
+
+  // Stop analyzing/polling
+  const handleStopAnalyzing = useCallback(() => {
+    pollingAbortRef.current = true;
+    setIsSummaryLoading(false);
+  }, []);
 
   // Poll for job status
   const pollJobStatus = useCallback(async (id) => {
     const maxAttempts = 60; // 5 minutes max
     let attempts = 0;
+    pollingAbortRef.current = false; // Reset abort flag
     
     const poll = async () => {
+      // Check if stopped
+      if (pollingAbortRef.current) return;
+      
       try {
         const response = await axios.get(`${API_BASE_URL}/job/${id}/status`);
         const status = response.data.status;
         setJobStatus(status);
+        
+        if (pollingAbortRef.current) return;
         
         if (status === 'completed') {
           // Fetch summary
@@ -57,16 +80,19 @@ function AppContent() {
           return;
         }
         
-        // Continue polling
-        attempts++;
-        if (attempts < maxAttempts) {
-          setTimeout(poll, 5000); // Poll every 5 seconds
-        } else {
-          setIsSummaryLoading(false);
-          addToast('Processing timed out. Please try again.', 'error');
-          console.error('Job timed out');
+        // Continue polling if not stopped
+        if (!pollingAbortRef.current) {
+          attempts++;
+          if (attempts < maxAttempts) {
+            setTimeout(poll, 5000); // Poll every 5 seconds
+          } else {
+            setIsSummaryLoading(false);
+            addToast('Processing timed out. Please try again.', 'error');
+            console.error('Job timed out');
+          }
         }
       } catch (error) {
+        if (pollingAbortRef.current) return;
         console.error('Error polling job status:', error);
         attempts++;
         if (attempts < maxAttempts) {
@@ -132,10 +158,15 @@ function AppContent() {
     setMessages(prev => [...prev, userMessage]);
     setIsChatLoading(true);
     
+    // Create abort controller
+    chatAbortControllerRef.current = new AbortController();
+    
     try {
       const response = await axios.post(`${API_BASE_URL}/chat`, {
         message: content,
         job_id: jobId,
+      }, {
+        signal: chatAbortControllerRef.current.signal
       });
       
       // Add AI response
@@ -143,6 +174,10 @@ function AppContent() {
       setMessages(prev => [...prev, aiMessage]);
       
     } catch (error) {
+      // Don't show error if cancelled
+      if (axios.isCancel(error) || error.name === 'CanceledError') {
+        return;
+      }
       console.error('Chat failed:', error);
       // Add error message
       const errorMessage = { 
@@ -153,6 +188,7 @@ function AppContent() {
       setMessages(prev => [...prev, errorMessage]);
       addToast('Failed to get response', 'error');
     } finally {
+      chatAbortControllerRef.current = null;
       setIsChatLoading(false);
     }
   }, [jobId, addToast]);
@@ -168,6 +204,7 @@ function AppContent() {
             summary={summary} 
             isLoading={isSummaryLoading}
             jobId={jobId}
+            onStop={handleStopAnalyzing}
           />
         </section>
         
@@ -189,6 +226,7 @@ function AppContent() {
               onSendMessage={handleSendMessage}
               isLoading={isChatLoading}
               jobId={jobId}
+              onStop={handleStopChat}
             />
           </section>
         </div>
