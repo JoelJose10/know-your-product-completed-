@@ -116,33 +116,30 @@ async def upsert_vectors(
 
 async def search_vectors(
     query: str,
+    job_id: str,
     limit: int = 5,
-    job_id: Optional[str] = None,
     score_threshold: float = 0.5
 ) -> List[Dict[str, Any]]:
     """
     Search for similar vectors in Qdrant using query_points API.
     Returns list of matching chunks with scores.
-    
+
     Reference: https://qdrant.tech/documentation/quickstart/
     """
     client = get_client()
-    
+
     # Generate query embedding
     query_embedding = await generate_embedding(query)
-    
-    # Build filter if job_id specified
-    query_filter = None
-    if job_id:
-        query_filter = models.Filter(
-            must=[
-                models.FieldCondition(
-                    key="job_id",
-                    match=models.MatchValue(value=job_id)
-                )
-            ]
-        )
-    
+
+    query_filter = models.Filter(
+        must=[
+            models.FieldCondition(
+                key="job_id",
+                match=models.MatchValue(value=job_id)
+            )
+        ]
+    )
+
     # Use query_points (newer API) for search
     results = client.query_points(
         collection_name=COLLECTION_NAME,
