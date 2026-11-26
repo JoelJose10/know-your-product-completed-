@@ -1,13 +1,15 @@
 """
 Embeddings Service
-Generate embeddings using OpenAI (or mock vectors when MOCK_LLM=true)
+OpenAI / OpenRouter embeddings, or mock vectors when MOCK_LLM=true
 """
-from typing import List, Optional
+from typing import List
 
-from app.services.llm_config import openai_client_kwargs, use_mock_llm
+from app.services.llm_config import (
+    get_embedding_model_name,
+    openai_client_kwargs,
+    use_mock_llm,
+)
 
-# Embedding model configuration
-EMBEDDING_MODEL = "text-embedding-3-small"
 EMBEDDING_DIMENSIONS = 1536
 
 _client = None
@@ -22,6 +24,16 @@ def _get_client():
 
         _client = OpenAI(**openai_client_kwargs())
     return _client
+
+
+def _embedding_create_kwargs(input_value):
+    """Build embeddings.create kwargs; dimensions only when using OpenAI-native models."""
+    model = get_embedding_model_name()
+    kwargs = {"model": model, "input": input_value}
+    # OpenRouter/OpenAI text-embedding-3-* supports dimensions; skip for unknown models.
+    if "text-embedding-3" in model:
+        kwargs["dimensions"] = EMBEDDING_DIMENSIONS
+    return kwargs
 
 
 async def generate_embedding(text: str) -> List[float]:
@@ -39,11 +51,7 @@ async def generate_embedding(text: str) -> List[float]:
         return mock_embedding(text, EMBEDDING_DIMENSIONS)
 
     client = _get_client()
-    response = client.embeddings.create(
-        model=EMBEDDING_MODEL,
-        input=text,
-        dimensions=EMBEDDING_DIMENSIONS,
-    )
+    response = client.embeddings.create(**_embedding_create_kwargs(text))
     return response.data[0].embedding
 
 
@@ -71,11 +79,7 @@ async def generate_embeddings_batch(texts: List[str]) -> List[List[float]]:
 
     for i in range(0, len(processed_texts), batch_size):
         batch = processed_texts[i : i + batch_size]
-        response = client.embeddings.create(
-            model=EMBEDDING_MODEL,
-            input=batch,
-            dimensions=EMBEDDING_DIMENSIONS,
-        )
+        response = client.embeddings.create(**_embedding_create_kwargs(batch))
         sorted_data = sorted(response.data, key=lambda x: x.index)
         all_embeddings.extend([item.embedding for item in sorted_data])
 

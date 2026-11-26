@@ -1,17 +1,21 @@
 """
-Shared OpenAI / LiteLLM-compatible client configuration.
+Shared LLM client configuration.
 
-Uses OPENAI_API_KEY by default. Set OPENAI_BASE_URL to point at a
-LiteLLM-compatible gateway (e.g. KeyValue) when running locally.
-
-Set MOCK_LLM=true to run without any paid LLM (Render free demo).
+Priority:
+1. MOCK_LLM=true → free local mock (no API calls)
+2. OPENROUTER_API_KEY → OpenRouter (OpenAI-compatible)
+3. OPENAI_API_KEY (+ optional OPENAI_BASE_URL for LiteLLM / OpenAI)
 """
 import os
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Optional
 
 from dotenv import load_dotenv
 
 load_dotenv()
+
+OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
+DEFAULT_CHAT_MODEL = "openai/gpt-4o-mini"
+DEFAULT_EMBEDDING_MODEL = "openai/text-embedding-3-small"
 
 
 def use_mock_llm() -> bool:
@@ -19,13 +23,48 @@ def use_mock_llm() -> bool:
 
 
 def get_openai_api_key() -> Optional[str]:
-    return os.getenv("OPENAI_API_KEY")
+    return (
+        os.getenv("OPENROUTER_API_KEY")
+        or os.getenv("OPENAI_API_KEY")
+        or os.getenv("LITE_LLM_KEY")
+    )
 
 
 def get_openai_base_url() -> Optional[str]:
-    """Return custom base URL if set; None means the official OpenAI API."""
-    base_url = os.getenv("OPENAI_BASE_URL", "").strip()
-    return base_url or None
+    """Return API base URL. OpenRouter is used automatically when its key is set."""
+    explicit = os.getenv("OPENAI_BASE_URL", "").strip()
+    if explicit:
+        return explicit
+    if os.getenv("OPENROUTER_API_KEY", "").strip():
+        return OPENROUTER_BASE_URL
+    # Legacy KeyValue LiteLLM when only LITE_LLM_KEY is present
+    if os.getenv("LITE_LLM_KEY", "").strip() and not os.getenv("OPENAI_API_KEY", "").strip():
+        return "https://llm.keyvalue.systems"
+    return None
+
+
+def get_chat_model_name() -> str:
+    return os.getenv("CHAT_MODEL", DEFAULT_CHAT_MODEL).strip() or DEFAULT_CHAT_MODEL
+
+
+def get_embedding_model_name() -> str:
+    return (
+        os.getenv("EMBEDDING_MODEL", DEFAULT_EMBEDDING_MODEL).strip()
+        or DEFAULT_EMBEDDING_MODEL
+    )
+
+
+def _default_headers() -> Dict[str, str]:
+    """OpenRouter optionally uses these headers for rankings / app attribution."""
+    headers: Dict[str, str] = {}
+    referer = os.getenv("OPENROUTER_HTTP_REFERER", "").strip()
+    title = os.getenv("OPENROUTER_APP_TITLE", "Know Your Product").strip()
+    if get_openai_base_url() == OPENROUTER_BASE_URL or os.getenv("OPENROUTER_API_KEY"):
+        if referer:
+            headers["HTTP-Referer"] = referer
+        if title:
+            headers["X-Title"] = title
+    return headers
 
 
 def openai_client_kwargs() -> Dict[str, Any]:
@@ -34,22 +73,25 @@ def openai_client_kwargs() -> Dict[str, Any]:
     base_url = get_openai_base_url()
     if base_url:
         kwargs["base_url"] = base_url
+    headers = _default_headers()
+    if headers:
+        kwargs["default_headers"] = headers
     return kwargs
 
 
-def chat_openai_kwargs(
-    model: str = "gpt-4o-mini",
-    temperature: float = 0.3,
-) -> Dict[str, Any]:
+def chat_openai_kwargs(temperature: float = 0.3) -> Dict[str, Any]:
     """Kwargs for langchain_openai.ChatOpenAI(...)"""
     kwargs: Dict[str, Any] = {
-        "model": model,
+        "model": get_chat_model_name(),
         "temperature": temperature,
         "api_key": get_openai_api_key() or "mock",
     }
     base_url = get_openai_base_url()
     if base_url:
         kwargs["base_url"] = base_url
+    headers = _default_headers()
+    if headers:
+        kwargs["default_headers"] = headers
     return kwargs
 
 
@@ -64,7 +106,12 @@ def get_chat_model():
     return ChatOpenAI(**chat_openai_kwargs())
 
 
-def is_openai_configured() -> bool:
+def is_llm_configured() -> bool:
     if use_mock_llm():
         return True
     return bool(get_openai_api_key())
+
+
+# Back-compat alias
+def is_openai_configured() -> bool:
+    return is_llm_configured()

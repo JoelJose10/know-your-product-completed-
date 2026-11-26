@@ -8,12 +8,18 @@ from __future__ import annotations
 import hashlib
 import math
 import re
+from dataclasses import dataclass
 from typing import Any, List, Sequence
-
-from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
 
 
 EMBEDDING_DIMENSIONS = 1536
+
+
+@dataclass
+class MockAIMessage:
+    """Duck-typed stand-in for langchain AIMessage (exposes .content)."""
+
+    content: str
 
 
 def mock_embedding(text: str, dimensions: int = EMBEDDING_DIMENSIONS) -> List[float]:
@@ -26,11 +32,9 @@ def mock_embedding(text: str, dimensions: int = EMBEDDING_DIMENSIONS) -> List[fl
     while len(values) < dimensions:
         seed = hashlib.sha256(seed).digest()
         for b in seed:
-            # map byte to [-1, 1]
             values.append((b / 127.5) - 1.0)
             if len(values) >= dimensions:
                 break
-    # L2 normalize
     norm = math.sqrt(sum(v * v for v in values)) or 1.0
     return [v / norm for v in values]
 
@@ -39,18 +43,28 @@ def mock_embeddings_batch(texts: Sequence[str]) -> List[List[float]]:
     return [mock_embedding(t) for t in texts]
 
 
-class MockChatModel:
-    """Minimal async chat stand-in with ainvoke(messages) -> AIMessage."""
+def _message_content(message: Any) -> str:
+    content = getattr(message, "content", None)
+    return content if isinstance(content, str) else ""
 
-    async def ainvoke(self, messages: Sequence[BaseMessage], **_: Any) -> AIMessage:
-        human_bits = [
-            m.content for m in messages if isinstance(m, HumanMessage) and isinstance(m.content, str)
-        ]
-        blob = "\n".join(human_bits)
+
+def _is_human_message(message: Any) -> bool:
+    name = type(message).__name__
+    return name in ("HumanMessage", "human") or getattr(message, "type", None) == "human"
+
+
+class MockChatModel:
+    """Minimal async chat stand-in with ainvoke(messages) -> MockAIMessage."""
+
+    async def ainvoke(self, messages: Sequence[Any], **_: Any) -> MockAIMessage:
+        human_bits = [_message_content(m) for m in messages if _is_human_message(m)]
+        blob = "\n".join(bit for bit in human_bits if bit)
         lower = blob.lower()
 
-        if "follow-up questions" in lower or "generate" in lower and "questions" in lower:
-            return AIMessage(
+        if "follow-up questions" in lower or (
+            "generate" in lower and "questions" in lower
+        ):
+            return MockAIMessage(
                 content=(
                     "1. Who is the primary target user?\n"
                     "2. What are the main features?\n"
@@ -58,10 +72,14 @@ class MockChatModel:
                 )
             )
 
-        if "TITLE:" in blob or "product documentation" in lower or "product summary" in lower:
+        if (
+            "TITLE:" in blob
+            or "product documentation" in lower
+            or "product summary" in lower
+        ):
             title = _guess_title(blob)
             snippet = _snippet(blob, 400)
-            return AIMessage(
+            return MockAIMessage(
                 content=(
                     f"TITLE: {title}\n"
                     f"SUMMARY: {snippet} This mock summary was generated without a paid OpenAI key "
@@ -71,10 +89,9 @@ class MockChatModel:
                 )
             )
 
-        # Default RAG-style answer from retrieved context in the prompt
         context = _snippet(blob, 600)
         question = _last_question(blob)
-        return AIMessage(
+        return MockAIMessage(
             content=(
                 f"Based on the uploaded documents (mock LLM):\n\n"
                 f"**Question:** {question}\n\n"
@@ -95,7 +112,6 @@ def _guess_title(text: str) -> str:
 
 
 def _snippet(text: str, limit: int) -> str:
-    # Prefer content after documentation markers
     cleaned = re.sub(r"\s+", " ", text).strip()
     if "Here is the product documentation:" in cleaned:
         cleaned = cleaned.split("Here is the product documentation:", 1)[-1].strip()
@@ -112,5 +128,5 @@ def _snippet(text: str, limit: int) -> str:
 def _last_question(text: str) -> str:
     if "User Question:" in text:
         return text.split("User Question:", 1)[-1].strip().split("\n")[0][:200]
-    lines = [l.strip() for l in text.splitlines() if l.strip()]
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
     return lines[-1][:200] if lines else "What is this product?"

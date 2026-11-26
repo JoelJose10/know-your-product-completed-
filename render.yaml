@@ -16,10 +16,20 @@ services:
       - key: PYTHON_VERSION
         value: "3.12.8"
       - key: MOCK_LLM
-        value: "true"
-      - key: OPENAI_API_KEY
+        value: "false"
+      - key: OPENROUTER_API_KEY
         sync: false
       - key: OPENAI_BASE_URL
+        value: https://openrouter.ai/api/v1
+      - key: CHAT_MODEL
+        value: openai/gpt-4o-mini
+      - key: EMBEDDING_MODEL
+        value: openai/text-embedding-3-small
+      - key: OPENROUTER_HTTP_REFERER
+        value: https://know-your-product-web-b1pr.onrender.com
+      - key: OPENROUTER_APP_TITLE
+        value: Know Your Product
+      - key: OPENAI_API_KEY
         sync: false
       - key: QDRANT_URL
         sync: false
