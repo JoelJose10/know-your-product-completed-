@@ -50,7 +50,8 @@ async def chat(request: ChatRequest):
         )
         
         return ChatResponse(
-            response=result["response"],
+            response=result["answer"],
+            # response=result["response"],
             sources=result.get("sources", []),
             job_id=request.job_id
         )
