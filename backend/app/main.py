@@ -77,6 +77,10 @@ async def health_check():
     return {
         "status": "healthy",
         "qdrant": "connected",
-        "openai": "configured" if os.getenv("OPENAI_API_KEY") else "not configured",
+        "openai": (
+            "mock"
+            if os.getenv("MOCK_LLM", "").lower() in ("1", "true", "yes")
+            else ("configured" if os.getenv("OPENAI_API_KEY") else "not configured")
+        ),
         "langsmith": get_tracing_status()
     }

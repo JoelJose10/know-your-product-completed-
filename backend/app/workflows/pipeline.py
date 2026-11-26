@@ -9,15 +9,14 @@ Orchestrates the document processing workflow:
 """
 from typing import List, Dict, Any, TypedDict, Annotated
 from langgraph.graph import StateGraph, END
-from langchain_openai import ChatOpenAI
 from langchain_core.messages import SystemMessage, HumanMessage
 
 from app.services.extraction import TextExtractor, TextChunker
 from app.services.qdrant_client import upsert_vectors
 from app.services.job_store import job_store, JobStatus
-from app.services.llm_config import chat_openai_kwargs
+from app.services.llm_config import get_chat_model
 
-llm = ChatOpenAI(**chat_openai_kwargs())
+llm = get_chat_model()
 
 
 class PipelineState(TypedDict):

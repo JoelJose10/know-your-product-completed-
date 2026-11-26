@@ -3,13 +3,12 @@ RAG Service
 Retrieval-Augmented Generation for answering questions about documents
 """
 from typing import List, Dict, Any, Optional
-from langchain_openai import ChatOpenAI
 from langchain_core.messages import SystemMessage, HumanMessage
 
 from app.services.qdrant_client import search_vectors
-from app.services.llm_config import chat_openai_kwargs
+from app.services.llm_config import get_chat_model
 
-llm = ChatOpenAI(**chat_openai_kwargs())
+llm = get_chat_model()
 
 # RAG system prompt
 RAG_SYSTEM_PROMPT = """You are a helpful AI assistant that answers questions about product documentation.

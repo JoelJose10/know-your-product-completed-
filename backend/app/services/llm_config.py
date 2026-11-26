@@ -3,13 +3,19 @@ Shared OpenAI / LiteLLM-compatible client configuration.
 
 Uses OPENAI_API_KEY by default. Set OPENAI_BASE_URL to point at a
 LiteLLM-compatible gateway (e.g. KeyValue) when running locally.
+
+Set MOCK_LLM=true to run without any paid LLM (Render free demo).
 """
 import os
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Union
 
 from dotenv import load_dotenv
 
 load_dotenv()
+
+
+def use_mock_llm() -> bool:
+    return os.getenv("MOCK_LLM", "").lower() in ("1", "true", "yes")
 
 
 def get_openai_api_key() -> Optional[str]:
@@ -24,7 +30,7 @@ def get_openai_base_url() -> Optional[str]:
 
 def openai_client_kwargs() -> Dict[str, Any]:
     """Kwargs for openai.OpenAI(...)"""
-    kwargs: Dict[str, Any] = {"api_key": get_openai_api_key()}
+    kwargs: Dict[str, Any] = {"api_key": get_openai_api_key() or "mock"}
     base_url = get_openai_base_url()
     if base_url:
         kwargs["base_url"] = base_url
@@ -39,7 +45,7 @@ def chat_openai_kwargs(
     kwargs: Dict[str, Any] = {
         "model": model,
         "temperature": temperature,
-        "api_key": get_openai_api_key(),
+        "api_key": get_openai_api_key() or "mock",
     }
     base_url = get_openai_base_url()
     if base_url:
@@ -47,5 +53,18 @@ def chat_openai_kwargs(
     return kwargs
 
 
+def get_chat_model():
+    """Return mock or real chat model (lazy)."""
+    if use_mock_llm():
+        from app.services.mock_llm import MockChatModel
+
+        return MockChatModel()
+    from langchain_openai import ChatOpenAI
+
+    return ChatOpenAI(**chat_openai_kwargs())
+
+
 def is_openai_configured() -> bool:
+    if use_mock_llm():
+        return True
     return bool(get_openai_api_key())

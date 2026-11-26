@@ -3,11 +3,13 @@
 Branch: **`polylane-demo`**  
 Repo: `JoelJose10/know-your-product-completed-`
 
-Do **not** put KeyValue `LITE_LLM_KEY` on Render. Use a personal `OPENAI_API_KEY`.
+Do **not** put KeyValue `LITE_LLM_KEY` on Render.
+
+**No paid OpenAI required:** Blueprint sets `MOCK_LLM=true` (fake embeddings + mock chat/summary).
 
 ## What this branch already includes
 
-- OpenAI via `OPENAI_API_KEY` (optional `OPENAI_BASE_URL`)
+- `MOCK_LLM=true` free path (or real OpenAI when mock is off)
 - CORS from `ALLOWED_ORIGINS` + `*.onrender.com` regex
 - Frontend `VITE_API_BASE_URL` for the API URL
 - [`render.yaml`](render.yaml) Blueprint (free API + static site)
@@ -18,8 +20,8 @@ Do **not** put KeyValue `LITE_LLM_KEY` on Render. Use a personal `OPENAI_API_KEY
 |---------|-------|-------------------|
 | [Render](https://render.com) | Yes | GitHub connected |
 | [Qdrant Cloud](https://cloud.qdrant.io) | Yes | `QDRANT_URL`, `QDRANT_API_KEY` |
-| OpenAI | Usage-based | `OPENAI_API_KEY` (leave `OPENAI_BASE_URL` empty) |
-| [LangSmith](https://smith.langchain.com) | Developer free tier | `LANGCHAIN_API_KEY` |
+| OpenAI | Optional | Not needed while `MOCK_LLM=true` |
+| [LangSmith](https://smith.langchain.com) | Developer free tier | `LANGCHAIN_API_KEY` (optional) |
 
 ## Deploy with Blueprint
 
@@ -33,18 +35,19 @@ Do **not** put KeyValue `LITE_LLM_KEY` on Render. Use a personal `OPENAI_API_KEY
 
 | Variable | Value |
 |----------|--------|
-| `OPENAI_API_KEY` | Personal OpenAI key |
+| `MOCK_LLM` | `true` (default in Blueprint — no OpenAI bill) |
+| `OPENAI_API_KEY` | Leave empty while mocking |
 | `OPENAI_BASE_URL` | Leave empty |
 | `QDRANT_URL` | Qdrant Cloud HTTPS URL |
 | `QDRANT_API_KEY` | Qdrant Cloud API key |
-| `ALLOWED_ORIGINS` | `https://know-your-product-web.onrender.com` (adjust if the hostname differs) |
-| `LANGCHAIN_API_KEY` | LangSmith key |
+| `ALLOWED_ORIGINS` | e.g. `https://know-your-product-web-b1pr.onrender.com` |
+| `LANGCHAIN_API_KEY` | LangSmith key (optional with mock) |
 
 `VITE_API_BASE_URL` is wired from the API’s `RENDER_EXTERNAL_URL`. If the static site built before the API existed, **Manual Deploy** the static site once.
 
 ## Smoke test
 
-1. `https://<api>.onrender.com/health` → `"openai": "configured"`, healthy.
+1. `https://<api>.onrender.com/health` → `"openai": "mock"` (or `"configured"` if using real OpenAI), healthy.
 2. Open the static site → upload **PDF/MD/DOCX** (not images — no Tesseract on free Render).
 3. Chat once; confirm a LangSmith trace under `know-your-product-polylane-demo`.
 
