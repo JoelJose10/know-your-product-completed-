@@ -1,5 +1,5 @@
 # Render Blueprint — free-tier Polylane demo
-# Dashboard: New → Blueprint → connect this repo / polylane-demo branch
+# Dashboard: New → Blueprint → repo know-your-product-completed- → branch polylane-demo
 # Docs: https://render.com/docs/blueprint-spec
 
 services:
@@ -7,11 +7,14 @@ services:
     name: know-your-product-api
     runtime: python
     plan: free
+    branch: polylane-demo
     rootDir: backend
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /health
     envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.8"
       - key: OPENAI_API_KEY
         sync: false
       - key: OPENAI_BASE_URL
@@ -34,10 +37,13 @@ services:
   - type: web
     name: know-your-product-web
     runtime: static
+    branch: polylane-demo
     rootDir: frontend
     buildCommand: npm install && npm run build
     staticPublishPath: dist
     envVars:
+      - key: NODE_VERSION
+        value: "20"
       - key: VITE_API_BASE_URL
         fromService:
           name: know-your-product-api

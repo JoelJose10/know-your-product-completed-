@@ -38,6 +38,7 @@ app = FastAPI(
 )
 
 # Configure CORS from ALLOWED_ORIGINS (comma-separated). Defaults keep local Vite working.
+# Also allow Render static sites (*.onrender.com) so Blueprint deploys work before ALLOWED_ORIGINS is updated.
 _default_origins = "http://localhost:5173,http://127.0.0.1:5173"
 _allowed_origins = [
     origin.strip()
@@ -47,6 +48,7 @@ _allowed_origins = [
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_allowed_origins,
+    allow_origin_regex=r"https://.*\.onrender\.com",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
