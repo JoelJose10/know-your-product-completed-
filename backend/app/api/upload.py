@@ -37,12 +37,45 @@ class JobStatusResponse(BaseModel):
     error: str | None = None
 
 
+def safe_filename(filename: str | None) -> str | None:
+    """Reduce a client-supplied filename to a plain name for the job directory."""
+    name = os.path.basename((filename or "").replace("\\", "/").strip())
+    if name in ("", ".", ".."):
+        return None
+    return name
+
+
+def unique_name(name: str, used: set[str]) -> str:
+    """Return a name that is not in used, so two uploads never share a path."""
+    if name not in used:
+        used.add(name)
+        return name
+
+    stem, ext = os.path.splitext(name)
+    index = 1
+    while f"{stem}-{index}{ext}" in used:
+        index += 1
+    unique = f"{stem}-{index}{ext}"
+    used.add(unique)
+    return unique
+
+
+def safe_file_path(job_dir: str, name: str) -> str:
+    """Build the stored path and refuse any path that leaves the job directory."""
+    job_dir_abs = os.path.abspath(job_dir)
+    file_path = os.path.abspath(os.path.join(job_dir_abs, name))
+    if os.path.commonpath([job_dir_abs, file_path]) != job_dir_abs:
+        raise HTTPException(status_code=400, detail=f"Invalid filename: {name}")
+    return file_path
+
+
 def validate_file(file: UploadFile) -> bool:
     """Validate file extension and size"""
-    if not file.filename:
+    name = safe_filename(file.filename)
+    if name is None:
         return False
-    
-    ext = os.path.splitext(file.filename)[1].lower()
+
+    ext = os.path.splitext(name)[1].lower()
     return ext in ALLOWED_EXTENSIONS
 
 
@@ -75,15 +108,21 @@ async def upload_files(
     
     # Save files
     saved_files = []
+    used_names: set[str] = set()
     for file in files:
-        file_path = os.path.join(job_dir, file.filename)
+        name = safe_filename(file.filename)
+        if name is None:
+            raise HTTPException(status_code=400, detail=f"Invalid filename: {file.filename!r}")
+
+        name = unique_name(name, used_names)
+        file_path = safe_file_path(job_dir, name)
         content = await file.read()
         
         # Check file size
         if len(content) > MAX_FILE_SIZE:
             raise HTTPException(
                 status_code=400,
-                detail=f"File {file.filename} exceeds maximum size of 50MB"
+                detail=f"File {name} exceeds maximum size of 50MB"
             )
         
         with open(file_path, 'wb') as f:
