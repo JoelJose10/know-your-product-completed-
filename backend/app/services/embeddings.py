@@ -4,14 +4,14 @@ Generate embeddings using OpenAI API via Lite LLM
 """
 import os
 from typing import List
-from openai import OpenAI
+from openai import AsyncOpenAI
 from dotenv import load_dotenv
 
 load_dotenv()
 
 # Initialize OpenAI client with Lite LLM configuration
 LITE_LLM_BASE_URL = "https://llm.keyvalue.systems"
-client = OpenAI(
+client = AsyncOpenAI(
     api_key=os.getenv("LITE_LLM_KEY"),
     base_url=LITE_LLM_BASE_URL
 )
@@ -31,7 +31,7 @@ async def generate_embedding(text: str) -> List[float]:
     if len(text) > max_chars:
         text = text[:max_chars]
     
-    response = client.embeddings.create(
+    response = await client.embeddings.create(
         model=EMBEDDING_MODEL,
         input=text,
         dimensions=EMBEDDING_DIMENSIONS
@@ -61,7 +61,7 @@ async def generate_embeddings_batch(texts: List[str]) -> List[List[float]]:
     for i in range(0, len(processed_texts), batch_size):
         batch = processed_texts[i:i + batch_size]
         
-        response = client.embeddings.create(
+        response = await client.embeddings.create(
             model=EMBEDDING_MODEL,
             input=batch,
             dimensions=EMBEDDING_DIMENSIONS

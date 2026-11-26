@@ -21,13 +21,14 @@ configure_langsmith()
 async def lifespan(app: FastAPI):
     """Application lifespan handler for startup/shutdown events"""
     # Startup: Initialize services
-    from app.services.qdrant_client import init_qdrant
+    from app.services.qdrant_client import init_qdrant, close_qdrant
     await init_qdrant()
     print("✅ Qdrant client initialized")
     
     yield
     
     # Shutdown: Cleanup
+    await close_qdrant()
     print("👋 Shutting down...")
 
 app = FastAPI(

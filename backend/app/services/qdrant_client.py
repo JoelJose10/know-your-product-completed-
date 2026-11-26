@@ -5,7 +5,7 @@ Vector database operations for storing and searching embeddings
 import os
 import uuid
 from typing import List, Dict, Any, Optional
-from qdrant_client import QdrantClient
+from qdrant_client import AsyncQdrantClient
 from qdrant_client.http import models
 from qdrant_client.http.models import Distance, VectorParams, PointStruct
 from dotenv import load_dotenv
@@ -20,7 +20,7 @@ QDRANT_API_KEY = os.getenv("QDRANT_API_KEY")
 COLLECTION_NAME = "know_your_product"
 
 # Global client instance
-_client: Optional[QdrantClient] = None
+_client: Optional[AsyncQdrantClient] = None
 
 
 async def init_qdrant():
@@ -29,20 +29,20 @@ async def init_qdrant():
     
     if QDRANT_API_KEY:
         # Cloud connection
-        _client = QdrantClient(
+        _client = AsyncQdrantClient(
             url=QDRANT_URL,
             api_key=QDRANT_API_KEY,
         )
     else:
         # Local connection
-        _client = QdrantClient(url=QDRANT_URL)
+        _client = AsyncQdrantClient(url=QDRANT_URL)
     
     # Check if collection exists, create if not
-    collections = _client.get_collections().collections
+    collections = (await _client.get_collections()).collections
     collection_names = [c.name for c in collections]
     
     if COLLECTION_NAME not in collection_names:
-        _client.create_collection(
+        await _client.create_collection(
             collection_name=COLLECTION_NAME,
             vectors_config=VectorParams(
                 size=EMBEDDING_DIMENSIONS,
@@ -54,7 +54,16 @@ async def init_qdrant():
         print(f"✅ Collection exists: {COLLECTION_NAME}")
 
 
-def get_client() -> QdrantClient:
+async def close_qdrant():
+    """Close the Qdrant client and its HTTP connection pool"""
+    global _client
+
+    if _client is not None:
+        await _client.close()
+        _client = None
+
+
+def get_client() -> AsyncQdrantClient:
     """Get the Qdrant client instance"""
     global _client
     if _client is None:
@@ -106,7 +115,7 @@ async def upsert_vectors(
     batch_size = 100
     for i in range(0, len(points), batch_size):
         batch = points[i:i + batch_size]
-        client.upsert(
+        await client.upsert(
             collection_name=COLLECTION_NAME,
             points=batch
         )
@@ -144,14 +153,14 @@ async def search_vectors(
         )
     
     # Use query_points (newer API) for search
-    results = client.query_points(
+    results = (await client.query_points(
         collection_name=COLLECTION_NAME,
         query=query_embedding,
         query_filter=query_filter,
         limit=limit,
         score_threshold=score_threshold,
         with_payload=True
-    ).points
+    )).points
     
     # Format results
     formatted_results = []
@@ -172,7 +181,7 @@ async def delete_job_vectors(job_id: str) -> int:
     """Delete all vectors for a specific job"""
     client = get_client()
     
-    result = client.delete(
+    result = await client.delete(
         collection_name=COLLECTION_NAME,
         points_selector=models.FilterSelector(
             filter=models.Filter(
@@ -193,7 +202,7 @@ async def get_collection_info() -> Dict[str, Any]:
     """Get information about the collection"""
     client = get_client()
     
-    info = client.get_collection(collection_name=COLLECTION_NAME)
+    info = await client.get_collection(collection_name=COLLECTION_NAME)
     
     return {
         "name": COLLECTION_NAME,
