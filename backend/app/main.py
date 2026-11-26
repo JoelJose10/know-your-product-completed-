@@ -37,10 +37,16 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# Configure CORS
+# Configure CORS from ALLOWED_ORIGINS (comma-separated). Defaults keep local Vite working.
+_default_origins = "http://localhost:5173,http://127.0.0.1:5173"
+_allowed_origins = [
+    origin.strip()
+    for origin in os.getenv("ALLOWED_ORIGINS", _default_origins).split(",")
+    if origin.strip()
+]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=_allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -69,6 +75,6 @@ async def health_check():
     return {
         "status": "healthy",
         "qdrant": "connected",
-        "lite_llm": "configured" if os.getenv("LITE_LLM_KEY") else "not configured",
+        "openai": "configured" if os.getenv("OPENAI_API_KEY") else "not configured",
         "langsmith": get_tracing_status()
     }

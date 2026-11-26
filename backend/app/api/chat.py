@@ -2,6 +2,7 @@
 Chat API endpoint
 RAG-enabled chat for querying document content
 """
+import os
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Optional
@@ -30,6 +31,13 @@ async def chat(request: ChatRequest):
     Send a chat message and get a RAG-enabled response.
     Uses the document content from the specified job for context.
     """
+    # Reversible Polylane demo fault — set DEMO_FORCE_CHAT_ERROR=true on Render, then flip back to false.
+    if os.getenv("DEMO_FORCE_CHAT_ERROR", "").lower() in ("1", "true", "yes"):
+        raise HTTPException(
+            status_code=500,
+            detail="Demo fault: forced /chat failure for Polylane investigation",
+        )
+
     job = job_store.get_job(request.job_id)
     
     if not job:

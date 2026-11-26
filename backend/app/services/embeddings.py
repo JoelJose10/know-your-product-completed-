@@ -1,20 +1,13 @@
 """
 Embeddings Service
-Generate embeddings using OpenAI API via Lite LLM
+Generate embeddings using OpenAI (or a LiteLLM-compatible gateway)
 """
-import os
 from typing import List
 from openai import OpenAI
-from dotenv import load_dotenv
 
-load_dotenv()
+from app.services.llm_config import openai_client_kwargs
 
-# Initialize OpenAI client with Lite LLM configuration
-LITE_LLM_BASE_URL = "https://llm.keyvalue.systems"
-client = OpenAI(
-    api_key=os.getenv("LITE_LLM_KEY"),
-    base_url=LITE_LLM_BASE_URL
-)
+client = OpenAI(**openai_client_kwargs())
 
 # Embedding model configuration
 EMBEDDING_MODEL = "text-embedding-3-small"

@@ -1,0 +1,45 @@
+# Render Blueprint — free-tier Polylane demo
+# Dashboard: New → Blueprint → connect this repo / polylane-demo branch
+# Docs: https://render.com/docs/blueprint-spec
+
+services:
+  - type: web
+    name: know-your-product-api
+    runtime: python
+    plan: free
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: OPENAI_BASE_URL
+        sync: false
+      - key: QDRANT_URL
+        sync: false
+      - key: QDRANT_API_KEY
+        sync: false
+      - key: ALLOWED_ORIGINS
+        sync: false
+      - key: LANGCHAIN_API_KEY
+        sync: false
+      - key: LANGCHAIN_TRACING_V2
+        value: "true"
+      - key: LANGCHAIN_PROJECT
+        value: know-your-product-polylane-demo
+      - key: DEMO_FORCE_CHAT_ERROR
+        value: "false"
+
+  - type: web
+    name: know-your-product-web
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    envVars:
+      - key: VITE_API_BASE_URL
+        fromService:
+          name: know-your-product-api
+          type: web
+          envVarKey: RENDER_EXTERNAL_URL

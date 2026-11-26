@@ -2,24 +2,14 @@
 RAG Service
 Retrieval-Augmented Generation for answering questions about documents
 """
-import os
 from typing import List, Dict, Any, Optional
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import SystemMessage, HumanMessage
-from dotenv import load_dotenv
 
 from app.services.qdrant_client import search_vectors
+from app.services.llm_config import chat_openai_kwargs
 
-load_dotenv()
-
-# Initialize LLM with Lite LLM configuration
-LITE_LLM_BASE_URL = "https://llm.keyvalue.systems"
-llm = ChatOpenAI(
-    model="gpt-4o-mini",
-    temperature=0.3,
-    api_key=os.getenv("LITE_LLM_KEY"),
-    base_url=LITE_LLM_BASE_URL
-)
+llm = ChatOpenAI(**chat_openai_kwargs())
 
 # RAG system prompt
 RAG_SYSTEM_PROMPT = """You are a helpful AI assistant that answers questions about product documentation.

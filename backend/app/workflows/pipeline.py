@@ -7,27 +7,17 @@ Orchestrates the document processing workflow:
 4. Store in Qdrant
 5. Generate product summary
 """
-import os
 from typing import List, Dict, Any, TypedDict, Annotated
 from langgraph.graph import StateGraph, END
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import SystemMessage, HumanMessage
-from dotenv import load_dotenv
 
 from app.services.extraction import TextExtractor, TextChunker
 from app.services.qdrant_client import upsert_vectors
 from app.services.job_store import job_store, JobStatus
+from app.services.llm_config import chat_openai_kwargs
 
-load_dotenv()
-
-# Initialize LLM with Lite LLM configuration
-LITE_LLM_BASE_URL = "https://llm.keyvalue.systems"
-llm = ChatOpenAI(
-    model="gpt-4o-mini",
-    temperature=0.3,
-    api_key=os.getenv("LITE_LLM_KEY"),
-    base_url=LITE_LLM_BASE_URL
-)
+llm = ChatOpenAI(**chat_openai_kwargs())
 
 
 class PipelineState(TypedDict):
