@@ -55,8 +55,8 @@ async def chat(request: ChatRequest):
             job_id=request.job_id
         )
         
-    except Exception as e:
+    except Exception:
         raise HTTPException(
             status_code=500,
-            detail=f"Error generating response: {str(e)}"
+            detail="Error generating response"
         )
