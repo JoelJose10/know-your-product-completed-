@@ -37,10 +37,21 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# Configure CORS
+# Configure CORS — include local Vite and ngrok frontend tunnels
+_default_origins = (
+    "http://localhost:5173,"
+    "http://127.0.0.1:5173,"
+    "https://staunch-overcook-next.ngrok-free.dev"
+)
+_allowed_origins = [
+    origin.strip()
+    for origin in os.getenv("ALLOWED_ORIGINS", _default_origins).split(",")
+    if origin.strip()
+]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=_allowed_origins,
+    allow_origin_regex=r"https://.*\.ngrok(-free)?\.dev",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

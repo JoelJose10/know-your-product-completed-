@@ -1,59 +1,82 @@
 # Know Your Product
 
-A web application where users upload PRDs, Figma files, or screenshots, and an AI pipeline extracts a concise product summary with RAG-enabled chat functionality.
+Upload PRDs, docs, or screenshots and get an AI-generated product summary plus RAG chat over the uploaded content.
 
 ## Tech Stack
 
 - **Frontend**: Vite + React + Tailwind CSS
 - **Backend**: FastAPI
-- **Vector Database**: Qdrant Cloud
-- **AI/ML**: OpenAI Embeddings + GPT-4
+- **Vector Database**: Qdrant (local or Cloud)
+- **AI/ML**: GPT-4o-mini + `text-embedding-3-small` via KeyValue LiteLLM
 - **Orchestration**: LangGraph
-- **Observability**: LangSmith
+- **Observability**: LangSmith (optional)
 
 ## Project Structure
 
 ```
 know-your-product/
-├── frontend/               # React + Tailwind frontend
+├── frontend/                 # React + Tailwind
 │   ├── src/
-│   │   ├── components/    # UI components
-│   │   ├── App.jsx        # Main app component
-│   │   └── main.jsx       # Entry point
+│   │   ├── components/
+│   │   ├── App.jsx           # UI; API base defaults to /api (Vite proxy)
+│   │   └── main.jsx
+│   ├── vite.config.js        # Dev server, allowedHosts, /api → :8000 proxy
 │   └── package.json
-├── backend/               # FastAPI backend
+├── backend/                  # FastAPI
 │   ├── app/
-│   │   ├── main.py       # FastAPI app entry
-│   │   ├── api/          # API endpoints
-│   │   ├── services/     # Business logic
-│   │   └── workflows/    # LangGraph pipelines
-│   └── requirements.txt
-├── infra/                 # Infrastructure configs
-│   └── docker-compose.yml
-└── .env.example          # Environment variables template
+│   │   ├── main.py           # App entry, CORS, /health
+│   │   ├── api/              # upload, summary, chat, search
+│   │   ├── services/         # extraction, embeddings, RAG, Qdrant
+│   │   └── workflows/        # LangGraph pipeline
+│   ├── requirements.txt
+│   └── .env                  # Local secrets (not committed)
+├── infra/
+│   └── docker-compose.yml    # Optional local Qdrant
+├── .env.example
+└── README.md
 ```
 
-## Setup Instructions
-
-### Prerequisites
+## Prerequisites
 
 - Node.js 18+
 - Python 3.10+
-- Tesseract OCR (for image text extraction)
+- Qdrant (local Docker or [Qdrant Cloud](https://cloud.qdrant.io))
+- Tesseract OCR (only if you upload images)
+- KeyValue LiteLLM access (`LITE_LLM_KEY`; VPN if off-office network)
 
-### 1. Clone and Setup Environment
+## Setup
+
+### 1. Clone and env
 
 ```bash
-# Clone the repository
-git clone <repo-url>
-cd know-your-product
+git clone https://github.com/JoelJose10/know-your-product-completed-.git
+cd know-your-product-completed-
 
-# Copy environment variables
-cp .env.example .env
-# Edit .env with your API keys
+cp .env.example backend/.env
+# Edit backend/.env — set LITE_LLM_KEY and Qdrant settings
 ```
 
-### 2. Frontend Setup
+### 2. Qdrant (local example)
+
+```bash
+docker compose -f infra/docker-compose.yml --profile local-qdrant up -d
+```
+
+Or point `QDRANT_URL` / `QDRANT_API_KEY` at Qdrant Cloud in `backend/.env`.
+
+### 3. Backend
+
+```bash
+cd backend
+python -m venv venv
+source venv/bin/activate   # Windows: venv\Scripts\activate
+pip install -r requirements.txt
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+API: `http://localhost:8000` — check `GET /health`.
+
+### 4. Frontend
 
 ```bash
 cd frontend
@@ -61,69 +84,94 @@ npm install
 npm run dev
 ```
 
-Frontend will be available at `http://localhost:5173`
+UI: `http://localhost:5173`
 
-### 3. Backend Setup
+By default the app calls **`/api`**, and Vite proxies that to `http://localhost:8000`. You usually do **not** need to set a backend URL for local or ngrok-frontend setups.
+
+Optional override:
 
 ```bash
-cd backend
-
-# Create virtual environment
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Run the server
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+# frontend only — skip proxy and call a public API URL directly
+VITE_API_BASE_URL=https://your-api.example.com npm run dev
 ```
 
-Backend API will be available at `http://localhost:8000`
+### 5. Tesseract (optional, for PNG/JPG OCR)
 
-### 4. Install Tesseract (for OCR)
-
-**Ubuntu/Debian:**
 ```bash
+# Ubuntu/Debian
 sudo apt-get install tesseract-ocr
-```
 
-**macOS:**
-```bash
+# macOS
 brew install tesseract
 ```
 
-**Windows:**
-Download installer from https://github.com/UB-Mannheim/tesseract/wiki
+Prefer PDF / DOCX / Markdown if OCR is not installed.
+
+## Public access with ngrok (one tunnel)
+
+Free ngrok allows **one** public endpoint. Tunnel the **frontend** only; keep the backend on localhost and use the Vite `/api` proxy.
+
+```bash
+# terminals: Qdrant + uvicorn :8000 + npm run dev :5173
+ngrok http 5173
+```
+
+Open the ngrok HTTPS URL. Requests go:
+
+`browser → ngrok → Vite (:5173) → proxy /api → FastAPI (:8000)`
+
+CORS already allows `*.ngrok-free.dev` / `*.ngrok.dev`. You can also set:
+
+```bash
+ALLOWED_ORIGINS=http://localhost:5173,https://your-frontend.ngrok-free.dev
+```
+
+in `backend/.env` if you want an explicit allowlist.
 
 ## API Endpoints
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
+| `/` | GET | Basic health |
+| `/health` | GET | Detailed health (Qdrant, LiteLLM, LangSmith) |
 | `/upload` | POST | Upload files (PDF, DOCX, MD, PNG, JPG) |
-| `/summary/{job_id}` | GET | Get product summary for a job |
-| `/chat` | POST | RAG-enabled chat with context |
-| `/search` | GET | Search vector database |
-| `/job/{job_id}/status` | GET | Check job processing status |
+| `/summary/{job_id}` | GET | Product summary for a job |
+| `/chat` | POST | RAG chat with document context |
+| `/search` | GET | Vector search |
+| `/job/{job_id}/status` | GET | Processing status |
 
 ## Environment Variables
 
+Set these in **`backend/.env`** (see `.env.example`):
+
 | Variable | Description |
 |----------|-------------|
-| `OPENAI_API_KEY` | OpenAI API key for embeddings and chat |
-| `QDRANT_URL` | Qdrant Cloud cluster URL |
-| `QDRANT_API_KEY` | Qdrant Cloud API key |
-| `LANGCHAIN_API_KEY` | LangSmith API key for tracing |
-| `LANGCHAIN_TRACING_V2` | Enable LangSmith tracing (true/false) |
+| `LITE_LLM_KEY` | KeyValue LiteLLM API key |
+| `QDRANT_URL` | Qdrant URL (`http://localhost:6333` or Cloud URL) |
+| `QDRANT_API_KEY` | Required for Qdrant Cloud |
+| `ALLOWED_ORIGINS` | Comma-separated frontend origins (optional; ngrok regex also applies) |
+| `LANGCHAIN_API_KEY` | LangSmith API key (optional) |
+| `LANGCHAIN_TRACING_V2` | `true` / `false` |
 | `LANGCHAIN_PROJECT` | LangSmith project name |
+
+Frontend (optional):
+
+| Variable | Description |
+|----------|-------------|
+| `VITE_API_BASE_URL` | Override API base; default is `/api` (Vite proxy) |
 
 ## Features
 
-- **File Upload**: Drag-and-drop support for PRDs, Figma exports, and screenshots
-- **Text Extraction**: Automatic extraction from PDF, DOCX, Markdown, and images (OCR)
-- **AI Summarization**: GPT-4 powered product summaries
-- **RAG Chat**: Context-aware chat using vector search
-- **Real-time Progress**: Upload progress and processing status indicators
+- Drag-and-drop upload for PRDs and related docs
+- Text extraction from PDF, DOCX, Markdown, and images (OCR)
+- LangGraph pipeline: extract → chunk → embed → Qdrant → summary
+- RAG chat grounded in uploaded documents
+- Upload progress and job status polling
+
+## Notes
+
+- Job state is **in-memory**; it resets when the backend restarts.
+- Uploads and local Qdrant data are gitignored — do not commit `.env`, `.venv`, `uploads/`, or `qdrant_storage/`.
 
 ## License
 
