@@ -2,8 +2,11 @@
 LangSmith Tracing Configuration
 Sets up observability for LangGraph pipelines and LLM calls
 """
+import logging
 import os
 from dotenv import load_dotenv
+
+from app.services.logging_config import log_event
 
 load_dotenv()
 
@@ -28,13 +31,24 @@ def configure_langsmith():
         os.environ["LANGCHAIN_PROJECT"] = project
         os.environ["LANGCHAIN_ENDPOINT"] = "https://api.smith.langchain.com"
         
-        print(f"✅ LangSmith tracing enabled for project: {project}")
+        log_event(
+            "langsmith_tracing_configured",
+            enabled=True,
+            project=project,
+            api_key_set=True,
+            endpoint="https://api.smith.langchain.com",
+        )
         return True
     else:
-        if tracing_enabled and not api_key:
-            print("⚠️ LangSmith tracing enabled but LANGCHAIN_API_KEY not set")
-        else:
-            print("ℹ️ LangSmith tracing disabled")
+        reason = "api_key_missing" if tracing_enabled else "disabled_by_config"
+        log_event(
+            "langsmith_tracing_configured",
+            level=logging.WARNING if tracing_enabled else logging.INFO,
+            enabled=False,
+            project=project,
+            api_key_set=bool(api_key),
+            reason=reason,
+        )
         return False
 
 

@@ -2,12 +2,16 @@
 File Extraction Service
 Extracts text content from various file formats
 """
+import logging
 import os
 from typing import List, Dict, Any
 import fitz  # PyMuPDF
 from docx import Document
 import pytesseract
 from PIL import Image
+
+from app.services.file_names import file_extension
+from app.services.logging_config import log_event
 
 
 class TextExtractor:
@@ -90,7 +94,7 @@ class TextExtractor:
             raise FileNotFoundError(f"File not found: {file_path}")
         
         filename = os.path.basename(file_path)
-        ext = os.path.splitext(filename)[1].lower()
+        ext = file_extension(filename)
         
         extractors = {
             '.pdf': cls.extract_from_pdf,
@@ -126,6 +130,13 @@ class TextExtractor:
                 result = cls.extract(file_path)
                 results.append(result)
             except Exception as e:
+                log_event(
+                    "document_extraction_failed",
+                    level=logging.WARNING,
+                    file_extension=file_extension(file_path),
+                    error_type=type(e).__name__,
+                    error_message=str(e).replace(file_path, "<file>"),
+                )
                 results.append({
                     "filename": os.path.basename(file_path),
                     "file_path": file_path,

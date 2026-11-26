@@ -7,7 +7,9 @@ Orchestrates the document processing workflow:
 4. Store in Qdrant
 5. Generate product summary
 """
+import logging
 import os
+import time
 from typing import List, Dict, Any, TypedDict, Annotated
 from langgraph.graph import StateGraph, END
 from langchain_openai import ChatOpenAI
@@ -15,6 +17,8 @@ from langchain_core.messages import SystemMessage, HumanMessage
 from dotenv import load_dotenv
 
 from app.services.extraction import TextExtractor, TextChunker
+from app.services.file_names import file_extension
+from app.services.logging_config import log_event, log_exception
 from app.services.qdrant_client import upsert_vectors
 from app.services.job_store import job_store, JobStatus
 
@@ -57,6 +61,18 @@ def extract_text_node(state: PipelineState) -> PipelineState:
         
         # Check for extraction errors
         successful_docs = [d for d in documents if "error" not in d]
+        failed_docs = [d for d in documents if "error" in d]
+        if failed_docs:
+            log_event(
+                "pipeline_partial_extraction",
+                level=logging.WARNING,
+                job_id=state["job_id"],
+                step="extract",
+                document_count=len(documents),
+                failed_document_count=len(failed_docs),
+                failed_file_extensions=[file_extension(d.get("filename")) for d in failed_docs],
+            )
+        
         if not successful_docs:
             raise Exception("Failed to extract text from any document")
         
@@ -66,6 +82,13 @@ def extract_text_node(state: PipelineState) -> PipelineState:
             "current_step": "chunk"
         }
     except Exception as e:
+        log_exception(
+            "pipeline_step_failed",
+            e,
+            job_id=state["job_id"],
+            step="extract",
+            file_count=len(state["file_paths"]),
+        )
         return {
             **state,
             "error_message": f"Text extraction failed: {str(e)}",
@@ -94,6 +117,13 @@ def chunk_content_node(state: PipelineState) -> PipelineState:
             "current_step": "embed"
         }
     except Exception as e:
+        log_exception(
+            "pipeline_step_failed",
+            e,
+            job_id=state["job_id"],
+            step="chunk",
+            document_count=len(state["extracted_documents"]),
+        )
         return {
             **state,
             "error_message": f"Chunking failed: {str(e)}",
@@ -118,6 +148,13 @@ async def embed_and_store_node(state: PipelineState) -> PipelineState:
             "current_step": "summarize"
         }
     except Exception as e:
+        log_exception(
+            "pipeline_step_failed",
+            e,
+            job_id=state["job_id"],
+            step="embed",
+            chunk_count=len(state["chunks"]),
+        )
         return {
             **state,
             "error_message": f"Embedding/storage failed: {str(e)}",
@@ -132,7 +169,8 @@ async def generate_summary_node(state: PipelineState) -> PipelineState:
         progress=80,
         message="Generating product summary..."
     )
-    
+    all_content = ""
+
     try:
         # Combine all extracted content (truncate if too long)
         all_content = "\n\n---\n\n".join([
@@ -184,6 +222,14 @@ CONFIDENCE: [0.0-1.0]"""
             "current_step": "complete"
         }
     except Exception as e:
+        log_exception(
+            "pipeline_step_failed",
+            e,
+            job_id=state["job_id"],
+            step="summarize",
+            chunk_count=len(state["chunks"]),
+            content_char_count=len(all_content or ""),
+        )
         return {
             **state,
             "error_message": f"Summary generation failed: {str(e)}",
@@ -323,10 +369,18 @@ def create_pipeline() -> StateGraph:
 pipeline = create_pipeline()
 
 
+def _job_status(job: Dict[str, Any]) -> str | None:
+    """Return the status of a job as a plain string"""
+    status = job.get("status")
+    return getattr(status, "value", status)
+
+
 async def process_documents(job_id: str, file_paths: List[str]):
     """
     Main entry point for document processing.
     Called as a background task from the upload endpoint.
+    Emits exactly one terminal event per job, so that a failed job is visible
+    without polling the job store.
     """
     initial_state: PipelineState = {
         "job_id": job_id,
@@ -338,10 +392,56 @@ async def process_documents(job_id: str, file_paths: List[str]):
         "error_message": None,
         "current_step": "extract"
     }
-    
+
+    started = time.perf_counter()
+    log_event(
+        "job_processing_started",
+        job_id=job_id,
+        file_count=len(file_paths),
+        file_extensions=[file_extension(path) for path in file_paths],
+    )
+
     try:
         # Run the pipeline
-        await pipeline.ainvoke(initial_state)
+        final_state = await pipeline.ainvoke(initial_state)
     except Exception as e:
         # Catch any unhandled errors
         job_store.set_job_failed(job_id, f"Pipeline error: {str(e)}")
+        log_exception(
+            "job_processing_failed",
+            e,
+            job_id=job_id,
+            duration_ms=round((time.perf_counter() - started) * 1000, 2),
+            failure_stage="pipeline_invocation",
+            file_count=len(file_paths),
+        )
+        return
+
+    duration_ms = round((time.perf_counter() - started) * 1000, 2)
+    job = job_store.get_job(job_id) or {}
+    summary = final_state.get("summary") or {}
+    terminal_fields = {
+        "job_id": job_id,
+        "duration_ms": duration_ms,
+        "file_count": len(file_paths),
+        "chunk_count": len(final_state.get("chunks") or []),
+        "vector_count": final_state.get("vectors_count"),
+        "job_status": _job_status(job),
+    }
+
+    if final_state.get("error_message"):
+        log_event(
+            "job_processing_failed",
+            level=logging.ERROR,
+            failure_stage="pipeline_step",
+            job_error=final_state.get("error_message"),
+            **terminal_fields,
+        )
+        return
+
+    log_event(
+        "job_processing_completed",
+        summary_confidence=summary.get("confidence"),
+        summary_tag_count=len(summary.get("tags") or []),
+        **terminal_fields,
+    )

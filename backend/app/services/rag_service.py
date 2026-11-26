@@ -2,12 +2,14 @@
 RAG Service
 Retrieval-Augmented Generation for answering questions about documents
 """
+import logging
 import os
 from typing import List, Dict, Any, Optional
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import SystemMessage, HumanMessage
 from dotenv import load_dotenv
 
+from app.services.logging_config import log_event
 from app.services.qdrant_client import search_vectors
 
 load_dotenv()
@@ -64,6 +66,16 @@ async def rag_query(
         score_threshold=0.3  # Lower threshold to get more context
     )
     
+    if not search_results:
+        log_event(
+            "rag_context_empty",
+            level=logging.WARNING,
+            job_id=job_id,
+            chunks_retrieved=0,
+            query_length=len(query),
+            top_k=top_k,
+        )
+
     # Build context from retrieved chunks
     context_parts = []
     sources = []

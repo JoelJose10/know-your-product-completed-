@@ -2,15 +2,18 @@
 Qdrant Client Service
 Vector database operations for storing and searching embeddings
 """
+import logging
 import os
 import uuid
 from typing import List, Dict, Any, Optional
+from urllib.parse import urlsplit
 from qdrant_client import QdrantClient
 from qdrant_client.http import models
 from qdrant_client.http.models import Distance, VectorParams, PointStruct
 from dotenv import load_dotenv
 
 from app.services.embeddings import generate_embedding, generate_embeddings_batch, EMBEDDING_DIMENSIONS
+from app.services.logging_config import log_event
 
 load_dotenv()
 
@@ -21,6 +24,14 @@ COLLECTION_NAME = "know_your_product"
 
 # Global client instance
 _client: Optional[QdrantClient] = None
+
+
+def qdrant_target() -> str:
+    """Return the Qdrant scheme and host, so that an event names the cluster and never the API key"""
+    parts = urlsplit(QDRANT_URL)
+    host = parts.hostname or "unknown"
+    port = f":{parts.port}" if parts.port else ""
+    return f"{parts.scheme}://{host}{port}"
 
 
 async def init_qdrant():
@@ -49,9 +60,23 @@ async def init_qdrant():
                 distance=Distance.COSINE
             )
         )
-        print(f"✅ Created collection: {COLLECTION_NAME}")
+        log_event(
+            "qdrant_collection_ready",
+            collection=COLLECTION_NAME,
+            created=True,
+            vector_size=EMBEDDING_DIMENSIONS,
+            distance="cosine",
+            target=qdrant_target(),
+        )
     else:
-        print(f"✅ Collection exists: {COLLECTION_NAME}")
+        log_event(
+            "qdrant_collection_ready",
+            collection=COLLECTION_NAME,
+            created=False,
+            vector_size=EMBEDDING_DIMENSIONS,
+            distance="cosine",
+            target=qdrant_target(),
+        )
 
 
 def get_client() -> QdrantClient:

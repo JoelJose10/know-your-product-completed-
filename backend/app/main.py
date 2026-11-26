@@ -2,6 +2,7 @@
 Know Your Product - FastAPI Backend
 Main application entry point
 """
+import logging
 import os
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
@@ -9,28 +10,52 @@ from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
 from app.api import upload, summary, chat, search
+from app.middleware import RequestLoggingMiddleware
+from app.services.logging_config import (
+    SERVICE_NAME,
+    SERVICE_VERSION,
+    configure_logging,
+    log_event,
+    log_exception,
+)
 from app.services.tracing import configure_langsmith
 
 # Load environment variables
 load_dotenv()
 
+configure_logging()
+
 # Configure LangSmith tracing
-configure_langsmith()
+tracing_enabled = configure_langsmith()
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan handler for startup/shutdown events"""
     # Startup: Initialize services
     from app.services.qdrant_client import init_qdrant
-    await init_qdrant()
-    print("✅ Qdrant client initialized")
-    
-    yield
-    
-    # Shutdown: Cleanup
-    print("👋 Shutting down...")
 
-app = FastAPI(
+    log_event(
+        "application_started",
+        level=logging.INFO,
+        service=SERVICE_NAME,
+        service_version=SERVICE_VERSION,
+        lite_llm_configured=bool(os.getenv("LITE_LLM_KEY")),
+        langsmith_tracing_enabled=tracing_enabled,
+    )
+
+    try:
+        await init_qdrant()
+    except Exception as error:
+        log_exception("qdrant_initialization_failed", error, startup_step="qdrant_init")
+        raise
+
+    yield
+
+    # Shutdown: Cleanup
+    log_event("application_stopped")
+
+api = FastAPI(
     title="Know Your Product API",
     description="AI-powered product documentation analysis and chat",
     version="1.0.0",
@@ -38,7 +63,7 @@ app = FastAPI(
 )
 
 # Configure CORS
-app.add_middleware(
+api.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
     allow_credentials=True,
@@ -47,12 +72,12 @@ app.add_middleware(
 )
 
 # Include routers
-app.include_router(upload.router, tags=["Upload"])
-app.include_router(summary.router, tags=["Summary"])
-app.include_router(chat.router, tags=["Chat"])
-app.include_router(search.router, tags=["Search"])
+api.include_router(upload.router, tags=["Upload"])
+api.include_router(summary.router, tags=["Summary"])
+api.include_router(chat.router, tags=["Chat"])
+api.include_router(search.router, tags=["Search"])
 
-@app.get("/")
+@api.get("/")
 async def root():
     """Health check endpoint"""
     return {
@@ -61,7 +86,7 @@ async def root():
         "version": "1.0.0"
     }
 
-@app.get("/health")
+@api.get("/health")
 async def health_check():
     """Detailed health check"""
     from app.services.tracing import get_tracing_status
@@ -72,3 +97,7 @@ async def health_check():
         "lite_llm": "configured" if os.getenv("LITE_LLM_KEY") else "not configured",
         "langsmith": get_tracing_status()
     }
+
+# Outermost layer, so the request id also reaches the client on the 500 response
+# that the framework builds for an unhandled error
+app = RequestLoggingMiddleware(api)
