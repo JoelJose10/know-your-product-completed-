@@ -1,13 +1,12 @@
 """
 Embeddings Service
-OpenAI / OpenRouter embeddings, or mock vectors when MOCK_LLM=true
+OpenAI / OpenRouter embeddings via the shared LLM client config.
 """
 from typing import List
 
 from app.services.llm_config import (
     get_embedding_model_name,
     openai_client_kwargs,
-    use_mock_llm,
 )
 
 EMBEDDING_DIMENSIONS = 1536
@@ -17,8 +16,6 @@ _client = None
 
 def _get_client():
     global _client
-    if use_mock_llm():
-        return None
     if _client is None:
         from openai import OpenAI
 
@@ -45,11 +42,6 @@ async def generate_embedding(text: str) -> List[float]:
     if len(text) > max_chars:
         text = text[:max_chars]
 
-    if use_mock_llm():
-        from app.services.mock_llm import mock_embedding
-
-        return mock_embedding(text, EMBEDDING_DIMENSIONS)
-
     client = _get_client()
     response = client.embeddings.create(**_embedding_create_kwargs(text))
     return response.data[0].embedding
@@ -67,11 +59,6 @@ async def generate_embeddings_batch(texts: List[str]) -> List[List[float]]:
             processed_texts.append(text[:max_chars] if len(text) > max_chars else text)
         else:
             processed_texts.append(" ")
-
-    if use_mock_llm():
-        from app.services.mock_llm import mock_embeddings_batch
-
-        return mock_embeddings_batch(processed_texts)
 
     client = _get_client()
     batch_size = 100

@@ -5,12 +5,11 @@ Repo: `JoelJose10/know-your-product-completed-`
 
 Do **not** put KeyValue `LITE_LLM_KEY` on Render.
 
-**LLM:** use **OpenRouter** (`OPENROUTER_API_KEY`). Fallback: `MOCK_LLM=true` (no external LLM).
+**LLM:** use **OpenRouter** (`OPENROUTER_API_KEY`).
 
 ## What this branch already includes
 
 - OpenRouter via OpenAI-compatible client (`OPENAI_BASE_URL=https://openrouter.ai/api/v1`)
-- Optional `MOCK_LLM=true` free path
 - CORS from `ALLOWED_ORIGINS` + `*.onrender.com` regex
 - Frontend `VITE_API_BASE_URL` for the API URL
 - [`render.yaml`](render.yaml) Blueprint (free API + static site)
@@ -36,7 +35,6 @@ Do **not** put KeyValue `LITE_LLM_KEY` on Render.
 
 | Variable | Value |
 |----------|--------|
-| `MOCK_LLM` | `false` |
 | `OPENROUTER_API_KEY` | Your OpenRouter key |
 | `OPENAI_BASE_URL` | `https://openrouter.ai/api/v1` |
 | `CHAT_MODEL` | `openai/gpt-4o-mini` (or any OpenRouter chat model) |
@@ -50,7 +48,7 @@ Do **not** put KeyValue `LITE_LLM_KEY` on Render.
 
 ## Smoke test
 
-1. `https://<api>.onrender.com/health` → `"llm": "openrouter"` (or `"mock"`), healthy.
+1. `https://<api>.onrender.com/health` → `"llm": "openrouter"`, healthy.
 2. Open the static site → upload **PDF/MD/DOCX** (not images — no Tesseract on free Render).
 3. Chat once; confirm a LangSmith trace under `know-your-product-polylane-demo`.
 

@@ -15,8 +15,6 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: "3.12.8"
-      - key: MOCK_LLM
-        value: "false"
       - key: OPENROUTER_API_KEY
         sync: false
       - key: OPENAI_BASE_URL

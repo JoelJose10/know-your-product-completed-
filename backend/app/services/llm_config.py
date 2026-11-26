@@ -2,9 +2,8 @@
 Shared LLM client configuration.
 
 Priority:
-1. MOCK_LLM=true → free local mock (no API calls)
-2. OPENROUTER_API_KEY → OpenRouter (OpenAI-compatible)
-3. OPENAI_API_KEY (+ optional OPENAI_BASE_URL for LiteLLM / OpenAI)
+1. OPENROUTER_API_KEY → OpenRouter (OpenAI-compatible)
+2. OPENAI_API_KEY (+ optional OPENAI_BASE_URL for LiteLLM / OpenAI)
 """
 import os
 from typing import Any, Dict, Optional
@@ -16,10 +15,6 @@ load_dotenv()
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 DEFAULT_CHAT_MODEL = "openai/gpt-4o-mini"
 DEFAULT_EMBEDDING_MODEL = "openai/text-embedding-3-small"
-
-
-def use_mock_llm() -> bool:
-    return os.getenv("MOCK_LLM", "").lower() in ("1", "true", "yes")
 
 
 def get_openai_api_key() -> Optional[str]:
@@ -69,7 +64,10 @@ def _default_headers() -> Dict[str, str]:
 
 def openai_client_kwargs() -> Dict[str, Any]:
     """Kwargs for openai.OpenAI(...)"""
-    kwargs: Dict[str, Any] = {"api_key": get_openai_api_key() or "mock"}
+    key = get_openai_api_key()
+    if not key:
+        raise RuntimeError("Set OPENROUTER_API_KEY (or OPENAI_API_KEY) before using the LLM")
+    kwargs: Dict[str, Any] = {"api_key": key}
     base_url = get_openai_base_url()
     if base_url:
         kwargs["base_url"] = base_url
@@ -81,10 +79,13 @@ def openai_client_kwargs() -> Dict[str, Any]:
 
 def chat_openai_kwargs(temperature: float = 0.3) -> Dict[str, Any]:
     """Kwargs for langchain_openai.ChatOpenAI(...)"""
+    key = get_openai_api_key()
+    if not key:
+        raise RuntimeError("Set OPENROUTER_API_KEY (or OPENAI_API_KEY) before using the LLM")
     kwargs: Dict[str, Any] = {
         "model": get_chat_model_name(),
         "temperature": temperature,
-        "api_key": get_openai_api_key() or "mock",
+        "api_key": key,
     }
     base_url = get_openai_base_url()
     if base_url:
@@ -96,19 +97,13 @@ def chat_openai_kwargs(temperature: float = 0.3) -> Dict[str, Any]:
 
 
 def get_chat_model():
-    """Return mock or real chat model (lazy)."""
-    if use_mock_llm():
-        from app.services.mock_llm import MockChatModel
-
-        return MockChatModel()
+    """Return ChatOpenAI configured for OpenRouter / OpenAI."""
     from langchain_openai import ChatOpenAI
 
     return ChatOpenAI(**chat_openai_kwargs())
 
 
 def is_llm_configured() -> bool:
-    if use_mock_llm():
-        return True
     return bool(get_openai_api_key())
 
 

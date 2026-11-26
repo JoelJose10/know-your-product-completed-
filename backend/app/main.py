@@ -78,12 +78,12 @@ async def health_check():
         "status": "healthy",
         "qdrant": "connected",
         "llm": (
-            "mock"
-            if os.getenv("MOCK_LLM", "").lower() in ("1", "true", "yes")
+            "openrouter"
+            if os.getenv("OPENROUTER_API_KEY")
             else (
-                "openrouter"
-                if os.getenv("OPENROUTER_API_KEY")
-                else ("openai" if os.getenv("OPENAI_API_KEY") or os.getenv("LITE_LLM_KEY") else "not configured")
+                "openai"
+                if os.getenv("OPENAI_API_KEY") or os.getenv("LITE_LLM_KEY")
+                else "not configured"
             )
         ),
         "langsmith": get_tracing_status()
