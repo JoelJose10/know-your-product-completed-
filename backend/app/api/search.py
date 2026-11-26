@@ -1,6 +1,6 @@
 """
 Search API endpoint
-Vector search across all indexed documents
+Vector search inside one job's indexed documents
 """
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
@@ -29,7 +29,11 @@ class SearchResponse(BaseModel):
 async def search(
     q: str = Query(..., min_length=1, description="Search query"),
     limit: int = Query(default=5, ge=1, le=20, description="Number of results"),
-    job_id: Optional[str] = Query(default=None, description="Filter by job ID")
+    job_id: str = Query(
+        ...,
+        min_length=1,
+        description="Job ID whose documents to search"
+    )
 ):
     """
     Search the vector database for relevant document chunks.

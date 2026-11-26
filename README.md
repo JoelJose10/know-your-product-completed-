@@ -137,7 +137,7 @@ in `backend/.env` if you want an explicit allowlist.
 | `/upload` | POST | Upload files (PDF, DOCX, MD, PNG, JPG) |
 | `/summary/{job_id}` | GET | Product summary for a job |
 | `/chat` | POST | RAG chat with document context |
-| `/search` | GET | Vector search |
+| `/search` | GET | Vector search inside one job (`job_id` required) |
 | `/job/{job_id}/status` | GET | Processing status |
 
 ## Environment Variables
