@@ -12,14 +12,20 @@ from app.services.llm_config import (
 EMBEDDING_DIMENSIONS = 1536
 
 _client = None
+_client_key = None
 
 
 def _get_client():
-    global _client
-    if _client is None:
+    """Lazy OpenAI client; recreate if the resolved API key changes (e.g. after .env edit)."""
+    global _client, _client_key
+    from app.services.llm_config import get_openai_api_key
+
+    key = get_openai_api_key()
+    if _client is None or key != _client_key:
         from openai import OpenAI
 
         _client = OpenAI(**openai_client_kwargs())
+        _client_key = key
     return _client
 
 
