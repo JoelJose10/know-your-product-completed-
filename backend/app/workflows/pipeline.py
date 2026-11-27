@@ -16,8 +16,6 @@ from app.services.qdrant_client import upsert_vectors
 from app.services.job_store import job_store, JobStatus
 from app.services.llm_config import get_chat_model
 
-llm = get_chat_model()
-
 
 class PipelineState(TypedDict):
     """State for the document processing pipeline"""
@@ -161,7 +159,7 @@ CONFIDENCE: [0.0-1.0]"""
             HumanMessage(content=f"Here is the product documentation:\n\n{all_content}")
         ]
         
-        response = await llm.ainvoke(messages)
+        response = await get_chat_model().ainvoke(messages)
         response_text = response.content
         
         # Parse response

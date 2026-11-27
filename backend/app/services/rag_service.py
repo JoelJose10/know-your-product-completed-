@@ -8,8 +8,6 @@ from langchain_core.messages import SystemMessage, HumanMessage
 from app.services.qdrant_client import search_vectors
 from app.services.llm_config import get_chat_model
 
-llm = get_chat_model()
-
 # RAG system prompt
 RAG_SYSTEM_PROMPT = """You are a helpful AI assistant that answers questions about product documentation.
 
@@ -92,7 +90,7 @@ Please answer based on the context provided above."""
     messages.append(HumanMessage(content=user_message))
     
     # Generate response
-    response = await llm.ainvoke(messages)
+    response = await get_chat_model().ainvoke(messages)
     
     return {
         "response": response.content,
@@ -120,7 +118,7 @@ Generate questions that would help the user understand the product better. Forma
         HumanMessage(content=prompt)
     ]
     
-    response = await llm.ainvoke(messages)
+    response = await get_chat_model().ainvoke(messages)
     
     # Parse questions from response
     lines = response.content.strip().split('\n')
