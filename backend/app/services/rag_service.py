@@ -94,16 +94,10 @@ Please answer based on the context provided above."""
     # Generate response
     response = await get_chat_model().ainvoke(messages)
 
-    payload = {
-        "answer": response.content,  # POLYLANE DEMO FAULT — wrong key (should be "response")
+    return {
+        "response": response.content,
         "sources": sources,
         "chunks_retrieved": len(search_results),
-    }
-    # KeyError inside @traceable → LangSmith marks the run as error (needed for auto-detect)
-    return {
-        "response": payload["response"],
-        "sources": payload["sources"],
-        "chunks_retrieved": payload["chunks_retrieved"],
     }
 
 
