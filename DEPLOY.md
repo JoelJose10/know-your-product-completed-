@@ -13,6 +13,7 @@ Do **not** put KeyValue `LITE_LLM_KEY` on Render.
 - CORS from `ALLOWED_ORIGINS` + `*.onrender.com` regex
 - Frontend `VITE_API_BASE_URL` for the API URL
 - [`render.yaml`](render.yaml) Blueprint (free API + static site)
+- API image built from [`backend/Dockerfile`](backend/Dockerfile) with the `tesseract-ocr` OS package, so PNG/JPG screenshot OCR works
 
 ## Accounts / secrets you need
 
@@ -29,7 +30,7 @@ Do **not** put KeyValue `LITE_LLM_KEY` on Render.
 2. [Render Dashboard](https://dashboard.render.com) → **New** → **Blueprint**.
 3. Select repo **`know-your-product-completed-`**, branch **`polylane-demo`**.
 4. Apply services:
-   - `know-your-product-api` (Free web service)
+   - `know-your-product-api` (Free web service, built from `backend/Dockerfile`)
    - `know-your-product-web` (static site)
 5. When prompted, set backend env vars:
 
@@ -49,7 +50,7 @@ Do **not** put KeyValue `LITE_LLM_KEY` on Render.
 ## Smoke test
 
 1. `https://<api>.onrender.com/health` → `"llm": "openrouter"`, healthy.
-2. Open the static site → upload **PDF/MD/DOCX** (not images — no Tesseract on free Render).
+2. Open the static site → upload **PDF/MD/DOCX**, then a **PNG/JPG screenshot** (the image runs OCR inside the Docker image).
 3. Chat once; confirm a LangSmith trace under `know-your-product-polylane-demo`.
 
 Free API sleeps after ~15 minutes idle (~1 minute cold start). Jobs/uploads reset on restart.
