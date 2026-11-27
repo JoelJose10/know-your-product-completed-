@@ -53,6 +53,27 @@ async def init_qdrant():
     else:
         print(f"✅ Collection exists: {COLLECTION_NAME}")
 
+    # Qdrant Cloud requires a payload index before filtering on job_id (/chat RAG).
+    _ensure_payload_indexes(_client)
+
+
+def _ensure_payload_indexes(client: QdrantClient) -> None:
+    """Create payload indexes needed for filtered search (idempotent)."""
+    try:
+        client.create_payload_index(
+            collection_name=COLLECTION_NAME,
+            field_name="job_id",
+            field_schema=models.PayloadSchemaType.KEYWORD,
+        )
+        print("✅ Payload index ready: job_id (keyword)")
+    except Exception as e:
+        # Already exists or transient — search will fail loudly if still missing
+        msg = str(e).lower()
+        if "already" in msg or "exists" in msg or "conflict" in msg:
+            print("✅ Payload index already present: job_id")
+        else:
+            print(f"⚠️ Could not ensure job_id payload index: {e}")
+
 
 def get_client() -> QdrantClient:
     """Get the Qdrant client instance"""
