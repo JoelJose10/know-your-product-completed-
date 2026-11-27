@@ -4,6 +4,7 @@ Retrieval-Augmented Generation for answering questions about documents
 """
 from typing import List, Dict, Any, Optional
 from langchain_core.messages import SystemMessage, HumanMessage
+from langsmith import traceable
 
 from app.services.qdrant_client import search_vectors
 from app.services.llm_config import get_chat_model
@@ -25,6 +26,7 @@ If the context is insufficient or irrelevant to the question, respond with:
 """
 
 
+@traceable(name="rag_query", run_type="chain")
 async def rag_query(
     query: str,
     job_id: str,
@@ -91,11 +93,17 @@ Please answer based on the context provided above."""
     
     # Generate response
     response = await get_chat_model().ainvoke(messages)
-    
-    return {
-        "response": response.content,
+
+    payload = {
+        "answer": response.content,  # POLYLANE DEMO FAULT — wrong key (should be "response")
         "sources": sources,
-        "chunks_retrieved": len(search_results)
+        "chunks_retrieved": len(search_results),
+    }
+    # KeyError inside @traceable → LangSmith marks the run as error (needed for auto-detect)
+    return {
+        "response": payload["response"],
+        "sources": payload["sources"],
+        "chunks_retrieved": payload["chunks_retrieved"],
     }
 
 
