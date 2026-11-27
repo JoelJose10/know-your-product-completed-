@@ -5,16 +5,13 @@
 services:
   - type: web
     name: know-your-product-api
-    runtime: python
+    runtime: docker
     plan: free
     branch: polylane-demo
     rootDir: backend
-    buildCommand: pip install -r requirements.txt
-    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    dockerfilePath: ./Dockerfile
     healthCheckPath: /health
     envVars:
-      - key: PYTHON_VERSION
-        value: "3.12.8"
       - key: OPENROUTER_API_KEY
         sync: false
       - key: OPENAI_BASE_URL
